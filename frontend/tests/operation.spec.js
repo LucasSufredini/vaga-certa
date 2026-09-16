@@ -1,0 +1,43 @@
+import {test,expect} from '@playwright/test';
+import {mkdirSync} from 'node:fs';
+
+test('operador registra entrada, rejeita duplicidade e confirma saída',async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/');
+  await page.getByRole('button',{name:'Explorar demonstração'}).click();
+  await page.getByRole('button',{name:'Carregar dados de exemplo'}).click();
+  await expect(page.getByText('ABC1D23',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Registrar entrada',exact:true}).click();
+  await page.getByLabel('Placa',{exact:true}).fill('TES1T23');
+  await page.getByLabel('Modelo e cor').fill('Fiat Uno · azul');
+  await page.getByRole('button',{name:'Confirmar entrada'}).click();
+  const row=page.getByRole('row').filter({hasText:'TES1T23'});
+  await expect(row).toBeVisible();
+  await page.getByRole('button',{name:'Registrar entrada',exact:true}).click();
+  await page.getByLabel('Placa',{exact:true}).fill('TES1T23');
+  await page.getByRole('button',{name:'Confirmar entrada'}).click();
+  await expect(page.getByRole('alert')).toContainText('já está');
+  await page.getByRole('button',{name:'Fechar',exact:true}).click();
+  await row.getByRole('button',{name:'Registrar saída'}).click();
+  await expect(page.getByRole('heading',{name:'Conferir saída'})).toBeVisible();
+  await page.getByRole('button',{name:'Confirmar saída'}).click();
+  await expect(page.getByRole('heading',{name:'Saída registrada'})).toBeVisible();
+  await page.getByRole('button',{name:'Voltar à operação'}).click();
+  await expect(row).toHaveCount(0);
+  await page.getByRole('button',{name:'Movimentações',exact:true}).click();
+  await page.getByLabel('Buscar no histórico').fill('TES1T23');
+  await expect(page.getByRole('row').filter({hasText:'TES1T23'})).toBeVisible();
+  const downloaded=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Exportar CSV'}).click();
+  expect((await downloaded).suggestedFilename()).toBe('movimentacoes.csv');
+  await page.getByRole('button',{name:'Visão geral',exact:true}).click();
+  await page.setViewportSize({width:1440,height:1080});
+  await page.waitForTimeout(5500); // Aguarda o toast desaparecer para a captura.
+  mkdirSync('../docs/images',{recursive:true});
+  await page.screenshot({path:'../docs/images/dashboard.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.getByRole('heading',{name:'Mapa de vagas'})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'../docs/images/mobile.png',fullPage:true});
+  expect(errors).toEqual([]);
+});
